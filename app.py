@@ -65,8 +65,8 @@ st.markdown(
 
 # ── 智谱 API 配置 ─────────────────────────────────────────
 ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-VISION_MODEL = "GLM-4.1V-Thinking"   # 带视觉理解
-TEXT_MODEL = "GLM-4.7-Flash"         # 纯文本，免费
+VISION_MODEL = "GLM-4V-Flash"       # 免费视觉理解
+TEXT_MODEL = "GLM-4.7-Flash"         # 免费纯文本
 
 # ── 侧边栏 ─────────────────────────────────────────────────
 with st.sidebar:
