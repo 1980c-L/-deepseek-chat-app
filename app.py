@@ -515,6 +515,13 @@ if prompt:
                 from langchain_openai import ChatOpenAI
                 from langgraph.prebuilt import create_react_agent
 
+                # RAG 上下文（Agent 模式也支持）
+                agent_rag_context = ""
+                if st.session_state.rag_enabled:
+                    ds = st.session_state.doc_store
+                    if ds.is_ready and API_KEY:
+                        agent_rag_context = ds.query(prompt, API_KEY, ZHIPU_BASE_URL)
+
                 llm = ChatOpenAI(
                     model=actual_model,
                     api_key=API_KEY,
@@ -538,7 +545,7 @@ if prompt:
                 final_output = ""
                 tool_logs = []
                 for event in agent.stream(
-                    {"messages": [{"role": "user", "content": prompt,
+                    {"messages": [{"role": "user", "content": f"## 参考文档\n{agent_rag_context}\n\n## 用户问题\n{prompt}" if agent_rag_context else prompt,
                                    "context": "\n".join(agent_messages[-6:])}]},
                     stream_mode="values",
                 ):
