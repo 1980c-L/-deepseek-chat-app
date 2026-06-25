@@ -187,11 +187,30 @@ for msg in st.session_state.messages:
                 st.image(img, width=200)
 
 # ── 输入栏：图片上传 + 消息输入 ──────────────────────────
-col_img, col_input = st.columns([0.08, 0.92], gap="small")
+st.markdown(
+    """
+<style>
+    /* 让上传按钮更紧凑 */
+    [data-testid="stFileUploader"] section {
+        padding: 0 !important;
+    }
+    [data-testid="stFileUploader"] button {
+        min-height: 2.6rem !important;
+        min-width: 2.6rem !important;
+        padding: 0 8px !important;
+        font-size: 1.2rem !important;
+        border-radius: 8px !important;
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
-with col_img:
+c1, c2 = st.columns([0.06, 0.94], gap="small")
+
+with c1:
     uploaded_files = st.file_uploader(
-        "📷",
+        "📎",
         type=["png", "jpg", "jpeg", "webp", "gif"],
         accept_multiple_files=True,
         key="image_uploader",
@@ -204,7 +223,7 @@ if uploaded_files:
         img = Image.open(f).convert("RGB")
         current_images.append(img)
 
-with col_input:
+with c2:
     prompt = st.chat_input("输入你的问题，按 Enter 发送…")
     if not api_key:
         st.error("❌ 请在侧边栏填写智谱 API Key")
