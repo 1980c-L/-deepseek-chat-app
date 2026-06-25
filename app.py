@@ -16,9 +16,35 @@ from dotenv import load_dotenv
 from rag import DocumentStore
 from agent_tools import get_langchain_tools
 
+import hashlib
+import secrets
+
 # ── 加载环境变量 ───────────────────────────────────────────
 load_dotenv()
-API_KEY = os.getenv("ZHIPU_API_KEY", "")
+
+# ── 登录配置 ───────────────────────────────────────────────
+# 从环境变量 / Streamlit Cloud secrets 读取用户凭据
+# 格式：LOGIN_USERS = "user1:pass1,user2:pass2"
+def _load_users() -> dict:
+    raw = os.getenv("LOGIN_USERS", "")
+    # Streamlit Cloud secrets 兼容
+    try:
+        if not raw:
+            raw = st.secrets.get("LOGIN_USERS", "")
+    except Exception:
+        pass
+    users = {}
+    if raw:
+        for pair in raw.split(","):
+            pair = pair.strip()
+            if ":" in pair:
+                u, p = pair.split(":", 1)
+                users[u.strip()] = p.strip()
+    return users
+
+LOGIN_USERS = _load_users()
+LOGIN_ENABLED = bool(LOGIN_USERS)
+API_KEY=os.get...Y", "")
 
 # ── 页面配置 ───────────────────────────────────────────────
 st.set_page_config(
@@ -27,6 +53,51 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded",
 )
+
+# ── 登录页面 ───────────────────────────────────────────────
+if LOGIN_ENABLED:
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "login_user" not in st.session_state:
+        st.session_state.login_user = ""
+
+    if not st.session_state.authenticated:
+        # 隐藏侧边栏
+        st.markdown("""
+        <style>
+            [data-testid="stSidebar"] { display: none; }
+            .main .block-container { max-width: 420px !important; padding-top: 12vh !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div style="text-align:center; margin-bottom:24px;">
+            <div style="font-size:3rem;">🤖</div>
+            <h2 style="margin:8px 0 0;">GLM Chat</h2>
+            <p style="color:#888;">请登录后使用</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            username = st.text_input("用户名", placeholder="输入用户名")
+            password = st.text_input("密码", type="password", placeholder="输入密码")
+            submitted = st.form_submit_button("登 录", use_container_width=True)
+
+            if submitted:
+                user = username.strip()
+                pwd = password.strip()
+                # SHA256 哈希比对（支持明文或哈希存储）
+                stored = LOGIN_USERS.get(user, "")
+                pwd_ok = (pwd == stored or
+                          hashlib.sha256(pwd.encode()).hexdigest() == stored)
+                if user in LOGIN_USERS and pwd_ok:
+                    st.session_state.authenticated = True
+                    st.session_state.login_user = user
+                    st.rerun()
+                else:
+                    st.error("用户名或密码错误")
+
+        st.stop()
 
 # ── 样式 ───────────────────────────────────────────────────
 st.markdown(
@@ -368,6 +439,15 @@ with st.sidebar:
 
     # ── 连接 ──
     st.markdown('<p class="sidebar-section">🔌 连接</p>', unsafe_allow_html=True)
+
+    # 登录状态
+    if LOGIN_ENABLED and st.session_state.authenticated:
+        st.success(f"👤 {st.session_state.login_user}")
+        if st.button("🚪 退出登录", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.login_user = ""
+            st.session_state.messages = []
+            st.rerun()
 
     # 供应商切换
     prev_provider = st.session_state.provider
