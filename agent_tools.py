@@ -107,6 +107,65 @@ def _fmt_size(n: int) -> str:
 
 
 # ═══════════════════════════════════════════════════════
+#  代码执行沙箱
+# ═══════════════════════════════════════════════════════
+import subprocess
+import tempfile
+import sys
+import os as _os
+
+
+def run_python(code: str) -> str:
+    """在隔离子进程中执行 Python 代码，30 秒超时，返回 stdout/stderr"""
+    # 写入临时文件
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".py", delete=False, encoding="utf-8"
+    )
+    tmp.write(code)
+    tmp.close()
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-u", tmp.name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(SANDBOX_DIR),
+            env={**_os.environ, "PYTHONIOENCODING": "utf-8"},
+        )
+        out = proc.stdout
+        err = proc.stderr
+
+        result_parts = []
+        if out.strip():
+            result_parts.append(f"[stdout]\n{out.rstrip()}")
+        if err.strip():
+            result_parts.append(f"[stderr]\n{err.rstrip()}")
+        if not out.strip() and not err.strip():
+            result_parts.append("(无输出)")
+
+        output = "\n\n".join(result_parts)
+
+        # 截断
+        max_chars = 5000
+        if len(output) > max_chars:
+            output = output[:max_chars] + f"\n\n...（截断，共 {len(output)} 字符）"
+
+        return f"✅ 退出码 {proc.returncode}\n\n{output}"
+
+    except subprocess.TimeoutExpired:
+        return "⏱️ 执行超时（30 秒），代码可能包含死循环或耗时操作"
+
+    except Exception as e:
+        return f"❌ 执行失败：{e}"
+
+    finally:
+        try:
+            Path(tmp.name).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+# ═══════════════════════════════════════════════════════
 #  LangChain 工具包装
 # ═══════════════════════════════════════════════════════
 def get_langchain_tools():
@@ -163,4 +222,9 @@ def get_langchain_tools():
         parts.append(result["text"][:3000])
         return "\n".join(parts)
 
-    return [calculator, search_web, fetch_webpage, list_files, read_file, write_file]
+    @tool
+    def python_exec(code: str) -> str:
+        """执行 Python 代码并返回结果。代码会保存到临时文件、用 subprocess 隔离运行、30 秒超时。输入完整的 Python 代码"""
+        return run_python(code)
+
+    return [calculator, search_web, fetch_webpage, python_exec, list_files, read_file, write_file]

@@ -353,7 +353,7 @@ with st.sidebar:
     if agent_enabled != st.session_state.agent_enabled:
         st.session_state.agent_enabled = agent_enabled
     if agent_enabled:
-        st.caption("可用工具：🔢计算器 🔍搜索 🌐抓网页 📂文件读写")
+        st.caption("可用工具：🔢计算器 🔍搜索 🌐抓网页 🐍执行代码 📂文件读写")
 
     st.divider()
 
