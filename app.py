@@ -255,10 +255,6 @@ if "rag_enabled" not in st.session_state:
     st.session_state.rag_enabled = False
 if "agent_enabled" not in st.session_state:
     st.session_state.agent_enabled = False
-if "user_avatar" not in st.session_state:
-    st.session_state.user_avatar = "👤"
-if "ai_avatar" not in st.session_state:
-    st.session_state.ai_avatar = "🤖"
 
 
 # ── 对话持久化 ────────────────────────────────────────────
@@ -288,7 +284,7 @@ def load_history() -> list:
                 msg = {
                     "role": entry["role"],
                     "content": entry["content"],
-                    "avatar": st.session_state.user_avatar if entry["role"] == "user" else st.session_state.ai_avatar,
+                    "avatar": "👤" if entry["role"] == "user" else "🤖",
                 }
                 if entry.get("had_images"):
                     msg["images"] = ["[历史图片]"] * entry["had_images"]
@@ -451,51 +447,6 @@ with st.sidebar:
             else:
                 st.info("没有历史记录")
 
-    st.divider()
-
-    # ── 外观 ──
-    st.markdown('<p class="sidebar-section">🎨 外观</p>', unsafe_allow_html=True)
-
-    col_ua, col_aa = st.columns(2)
-    with col_ua:
-        st.caption("你的头像")
-        user_av = st.text_input("你", value=st.session_state.user_avatar,
-                                max_chars=2, key="user_av_input",
-                                label_visibility="collapsed",
-                                placeholder="👤")
-        if user_av.strip():
-            st.session_state.user_avatar = user_av.strip()
-
-    with col_aa:
-        st.caption("AI 头像")
-        ai_av = st.text_input("AI", value=st.session_state.ai_avatar,
-                              max_chars=2, key="ai_av_input",
-                              label_visibility="collapsed",
-                              placeholder="🤖")
-        if ai_av.strip():
-            st.session_state.ai_avatar = ai_av.strip()
-
-    # 快速预设
-    presets = st.radio(
-        "快速预设",
-        ["👤/🤖 默认", "😊/🧠 表情", "🐱/🐶 动物", "🧑‍💻/🤖 程序员", "🐼/🦊 萌系"],
-        index=0,
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    if st.button("应用预设", use_container_width=True):
-        mapping = {
-            "👤/🤖 默认": ("👤", "🤖"),
-            "😊/🧠 表情": ("😊", "🧠"),
-            "🐱/🐶 动物": ("🐱", "🐶"),
-            "🧑‍💻/🤖 程序员": ("🧑‍💻", "🤖"),
-            "🐼/🦊 萌系": ("🐼", "🦊"),
-        }
-        st.session_state.user_avatar, st.session_state.ai_avatar = mapping[presets]
-        st.rerun()
-
-    st.divider()
-
     with st.expander("📖 使用指南"):
         st.markdown(
             """
@@ -655,7 +606,7 @@ if prompt:
 
     st.session_state.uploaded_images = current_images
 
-    with st.chat_message("user", avatar=st.session_state.user_avatar):
+    with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
         for img in current_images:
             st.image(img, width=200)
@@ -663,11 +614,11 @@ if prompt:
     st.session_state.messages.append({
         "role": "user",
         "content": prompt,
-        "avatar": st.session_state.user_avatar,
+        "avatar": "👤",
         "images": [img.copy() for img in current_images] if current_images else [],
     })
 
-    with st.chat_message("assistant", avatar=st.session_state.ai_avatar):
+    with st.chat_message("assistant", avatar="🤖"):
         placeholder = st.empty()
         full_response = ""
         error_occurred = False
@@ -789,7 +740,7 @@ if prompt:
 
             placeholder.markdown(full_response)
             save_history(st.session_state.messages + [{
-                "role": "assistant", "content": full_response, "avatar": st.session_state.ai_avatar,
+                "role": "assistant", "content": full_response, "avatar": "🤖",
             }])
 
         except Exception as e:
@@ -801,7 +752,7 @@ if prompt:
         st.session_state.messages.append({
             "role": "assistant",
             "content": full_response,
-            "avatar": st.session_state.ai_avatar,
+            "avatar": "🤖",
         })
         save_history(st.session_state.messages)
 
