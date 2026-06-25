@@ -14,6 +14,7 @@ from PIL import Image
 from pathlib import Path
 from dotenv import load_dotenv
 from rag import DocumentStore
+from agent_tools import get_langchain_tools
 
 # ── 加载环境变量 ───────────────────────────────────────────
 load_dotenv()
@@ -163,6 +164,8 @@ if "doc_store" not in st.session_state:
     st.session_state.doc_store = DocumentStore(Path(__file__).parent / ".rag_cache")
 if "rag_enabled" not in st.session_state:
     st.session_state.rag_enabled = False
+if "agent_enabled" not in st.session_state:
+    st.session_state.agent_enabled = False
 
 
 # ── 对话持久化 ────────────────────────────────────────────
@@ -254,6 +257,14 @@ with st.sidebar:
     )
     temperature = st.slider("温度", 0.0, 2.0, 0.7, 0.1)
     max_tokens = st.slider("最大输出", 64, 1024, 512, 64)
+
+    # Agent 模式
+    agent_enabled = st.toggle("🤖 Agent 模式", value=st.session_state.agent_enabled,
+                              help="开启后 AI 可调用工具：计算、搜索、读写文件")
+    if agent_enabled != st.session_state.agent_enabled:
+        st.session_state.agent_enabled = agent_enabled
+    if agent_enabled:
+        st.caption("可用工具：🔢计算器 🔍搜索 📂文件读写")
 
     st.divider()
 
@@ -494,41 +505,101 @@ if prompt:
             client = openai.OpenAI(
                 api_key=API_KEY,
                 base_url=ZHIPU_BASE_URL,
-                timeout=30.0,  # 连接 + 读取总超时
+                timeout=30.0,
             )
 
             actual_model = VISION_MODEL if current_images else model
-            messages = build_messages(actual_model, prompt, current_images)
 
-            stream = client.chat.completions.create(
-                model=actual_model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-            )
+            if st.session_state.agent_enabled:
+                # ── Agent 模式：LangChain 工具调用 ──
+                from langchain_openai import ChatOpenAI
+                from langgraph.prebuilt import create_react_agent
 
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                content = getattr(delta, "content", None) or ""
-                reasoning = getattr(delta, "reasoning_content", None)
-                if content or reasoning:
-                    if content:
-                        full_response += content
-                    else:
-                        full_response += reasoning
-                    placeholder.markdown(full_response)
+                llm = ChatOpenAI(
+                    model=actual_model,
+                    api_key=API_KEY,
+                    base_url=ZHIPU_BASE_URL,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                tools = get_langchain_tools()
+                agent = create_react_agent(llm, tools)
 
-            # 兜底：如果流式没拿到内容，尝试非流式结果
-            if not full_response.strip():
-                full_response = chunk.choices[0].message.content if hasattr(chunk.choices[0], "message") else ""
+                # 构建历史（只取文本消息）
+                agent_messages = []
+                for m in st.session_state.messages[-10:]:  # 最近 10 条
+                    if isinstance(m.get("content"), str):
+                        agent_messages.append(m["content"])
 
-            # 检测异常回复（全是标签没有实际内容）
-            text_only = re.sub(r'<[^>]+>', '', full_response).strip()
-            if full_response.strip() and not text_only:
-                full_response = "⚠️ API 返回了异常响应，请稍后重试或切换模型。"
-            elif not full_response.strip():
-                full_response = "⚠️ 未收到有效回复，请重试。"
+                # 显示思考中
+                placeholder.markdown("🤔 思考中…")
+
+                # 流式执行 Agent
+                final_output = ""
+                tool_logs = []
+                for event in agent.stream(
+                    {"messages": [{"role": "user", "content": prompt,
+                                   "context": "\n".join(agent_messages[-6:])}]},
+                    stream_mode="values",
+                ):
+                    if "messages" in event:
+                        msgs = event["messages"]
+                        last = msgs[-1] if msgs else None
+                        if last:
+                            msg_type = getattr(last, "type", "")
+                            if msg_type == "tool":
+                                tool_name = getattr(last, "name", "?")
+                                tool_logs.append(f"🔧 调用 **{tool_name}**")
+                                placeholder.markdown("\n".join(tool_logs))
+                            elif msg_type == "ai":
+                                ai_content = getattr(last, "content", "")
+                                if ai_content:
+                                    final_output = ai_content
+                                    placeholder.markdown(
+                                        "\n".join(tool_logs + ["", final_output])
+                                    )
+
+                if not final_output.strip():
+                    final_output = "Agent 未产生有效回复，请简化问题或关闭 Agent 模式重试。"
+
+                # 如果有工具调用，最终回复带工具日志
+                if tool_logs:
+                    full_response = "\n".join(tool_logs + ["", "---", "", final_output])
+                else:
+                    full_response = final_output
+
+            else:
+                # ── 普通模式：直接对话 ──
+                messages = build_messages(actual_model, prompt, current_images)
+                stream = client.chat.completions.create(
+                    model=actual_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+
+                for chunk in stream:
+                    delta = chunk.choices[0].delta
+                    content = getattr(delta, "content", None) or ""
+                    reasoning = getattr(delta, "reasoning_content", None)
+                    if content or reasoning:
+                        if content:
+                            full_response += content
+                        else:
+                            full_response += reasoning
+                        placeholder.markdown(full_response)
+
+                # 兜底
+                if not full_response.strip():
+                    full_response = chunk.choices[0].message.content if hasattr(chunk.choices[0], "message") else ""
+
+                # 异常检测
+                text_only = re.sub(r'<[^>]+>', '', full_response).strip()
+                if full_response.strip() and not text_only:
+                    full_response = "⚠️ API 返回了异常响应，请稍后重试或切换模型。"
+                elif not full_response.strip():
+                    full_response = "⚠️ 未收到有效回复，请重试。"
 
             placeholder.markdown(full_response)
             save_history(st.session_state.messages + [{
