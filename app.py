@@ -610,27 +610,40 @@ def build_messages(model_name: str, user_text: str, images: list[Image.Image]) -
     return [system_msg] + history + [current]
 
 
-def render_avatar(which: str, size: int = 32):
-    """渲染头像：优先图片，fallback emoji"""
-    img = st.session_state.user_avatar_img if which == "user" else st.session_state.ai_avatar_img
-    if img is not None:
-        st.image(img, width=size)
+def get_avatar_tuple(which: str) -> tuple:
+    """返回 (emoji_str_or_None, image_or_None)"""
+    if which == "user":
+        return (st.session_state.user_avatar, st.session_state.user_avatar_img)
     else:
-        emoji = st.session_state.user_avatar if which == "user" else st.session_state.ai_avatar
-        st.markdown(f'<span style="font-size:{size-4}px;line-height:1">{emoji}</span>',
-                    unsafe_allow_html=True)
+        return (st.session_state.ai_avatar, st.session_state.ai_avatar_img)
+
 
 # ── 渲染历史消息 ───────────────────────────────────────────
 for msg in st.session_state.messages:
     role = msg["role"]
-    with st.chat_message(role):
-        content = msg["content"]
-        if isinstance(content, str):
-            st.markdown(content)
-        if msg.get("images"):
-            for img in msg["images"]:
-                if isinstance(img, Image.Image):
-                    st.image(img, width=200)
+    emoji, img = get_avatar_tuple(role)
+    # 有图片头像时不用 chat_message 内置 avatar，自己画
+    if img is not None:
+        c_av, c_msg = st.columns([0.07, 0.93], gap="small")
+        with c_av:
+            st.image(img, width=36)
+        with c_msg:
+            content = msg["content"]
+            if isinstance(content, str):
+                st.markdown(content)
+            if msg.get("images"):
+                for im in msg["images"]:
+                    if isinstance(im, Image.Image):
+                        st.image(im, width=200)
+    else:
+        with st.chat_message(role, avatar=emoji):
+            content = msg["content"]
+            if isinstance(content, str):
+                st.markdown(content)
+            if msg.get("images"):
+                for im in msg["images"]:
+                    if isinstance(im, Image.Image):
+                        st.image(im, width=200)
 
 # ── 底部输入栏 ─────────────────────────────────────────────
 st.markdown(
@@ -687,7 +700,7 @@ if prompt:
 
     st.session_state.uploaded_images = current_images
 
-    with st.chat_message("user", avatar=st.session_state.user_avatar):
+    with st.chat_message("user", avatar=st.session_state.user_avatar if not st.session_state.user_avatar_img else None):
         st.markdown(prompt)
         for img in current_images:
             st.image(img, width=200)
