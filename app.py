@@ -481,6 +481,12 @@ with st.sidebar:
 st.markdown('<p class="app-title">🤖 GLM Chat</p>', unsafe_allow_html=True)
 st.markdown('<p class="app-subtitle">由智谱 GLM 驱动的多模态对话助手</p>', unsafe_allow_html=True)
 
+# ── 初始化 + 加载历史 ──────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = load_history()
+if "uploaded_images" not in st.session_state:
+    st.session_state.uploaded_images = []
+
 # ── 新手欢迎 ───────────────────────────────────────────────
 if not st.session_state.messages:
     st.info(
@@ -488,12 +494,6 @@ if not st.session_state.messages:
         "💬 直接聊天 · 📎 上传图片识别 · 🌐 贴链接分析网页 · 🔍 文档问答 · 🤖 Agent 自动执行\n\n"
         "左下角 **📖 使用指南** 有更多示例，试试看吧！",
     )
-
-# ── 初始化 + 加载历史 ──────────────────────────────────────
-if "messages" not in st.session_state:
-    st.session_state.messages = load_history()
-if "uploaded_images" not in st.session_state:
-    st.session_state.uploaded_images = []
 
 
 def encode_image(image: Image.Image) -> str:
