@@ -99,6 +99,53 @@ st.markdown(
         margin-top: 16px;
         margin-bottom: 8px;
     }
+
+    /* ── Typing 动画 ── */
+    .typing-dots {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        padding: 8px 0;
+    }
+    .typing-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #6366f1;
+        animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+        30% { transform: translateY(-8px); opacity: 1; }
+    }
+
+    /* ── 代码块高亮 ── */
+    [data-testid="stMarkdownContainer"] pre {
+        background: #0f0f1a !important;
+        border: 1px solid #2a2a3e !important;
+        border-radius: 10px !important;
+        padding: 16px !important;
+    }
+    [data-testid="stMarkdownContainer"] code {
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace !important;
+        font-size: 0.88rem !important;
+    }
+    [data-testid="stMarkdownContainer"] pre code {
+        color: #e4e4e7 !important;
+    }
+
+    /* ── 拖拽上传区 ── */
+    [data-testid="stFileUploadDropzone"] {
+        border: 2px dashed #3a3a4a !important;
+        border-radius: 10px !important;
+        padding: 6px 12px !important;
+        transition: border-color 0.2s;
+    }
+    [data-testid="stFileUploadDropzone"]:hover {
+        border-color: #6366f1 !important;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -205,19 +252,41 @@ with st.sidebar:
 
     # ── 对话操作 ──
     st.markdown('<p class="sidebar-section">💬 对话</p>', unsafe_allow_html=True)
+
+    # 清空：两步确认
+    if "confirm_clear" not in st.session_state:
+        st.session_state.confirm_clear = False
+
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🗑️ 清空", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.uploaded_images = []
-            try:
-                HISTORY_FILE.unlink(missing_ok=True)
-            except Exception:
-                pass
-            st.rerun()
+        if not st.session_state.confirm_clear:
+            if st.button("🗑️ 清空", use_container_width=True):
+                st.session_state.confirm_clear = True
+                st.rerun()
+        else:
+            if st.button("⚠️ 确认清空", use_container_width=True, type="primary"):
+                st.session_state.messages = []
+                st.session_state.uploaded_images = []
+                st.session_state.confirm_clear = False
+                try:
+                    HISTORY_FILE.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                st.rerun()
+            if st.button("↩ 取消", use_container_width=True):
+                st.session_state.confirm_clear = False
+                st.rerun()
+
     with col2:
         if st.button("📂 加载", use_container_width=True):
-            loaded = load_history()
+            with st.spinner("加载历史记录…"):
+                bar = st.progress(0, text="读取中…")
+                loaded = load_history()
+                bar.progress(50, text="解析中…")
+                time.sleep(0.3)
+                bar.progress(100, text="完成")
+                time.sleep(0.3)
+                bar.empty()
             if loaded:
                 st.session_state.messages = loaded
                 st.success(f"已恢复 {len(loaded)} 条消息")
@@ -344,6 +413,14 @@ if prompt:
         full_response = ""
         error_occurred = False
 
+        # 显示 typing 动画
+        typing_html = (
+            '<div class="typing-dots">'
+            "<span></span><span></span><span></span>"
+            "</div>"
+        )
+        placeholder.markdown(typing_html, unsafe_allow_html=True)
+
         try:
             client = openai.OpenAI(
                 api_key=API_KEY,
@@ -364,15 +441,14 @@ if prompt:
 
             for chunk in stream:
                 delta = chunk.choices[0].delta
-                # GLM API 可能把内容放在不同字段
                 content = getattr(delta, "content", None) or ""
                 reasoning = getattr(delta, "reasoning_content", None)
-                if content:
-                    full_response += content
-                    placeholder.markdown(full_response + "▌")
-                elif reasoning:
-                    full_response += reasoning
-                    placeholder.markdown(full_response + "▌")
+                if content or reasoning:
+                    if content:
+                        full_response += content
+                    else:
+                        full_response += reasoning
+                    placeholder.markdown(full_response)
 
             # 兜底：如果流式没拿到内容，尝试非流式结果
             if not full_response.strip():
