@@ -242,10 +242,52 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── 智谱 API 配置 ─────────────────────────────────────────
-ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
-VISION_MODEL = "GLM-4V-Flash"       # 免费视觉理解
-TEXT_MODEL = "GLM-4-Flash-250414"   # 免费纯文本（备选）
+# ── 多模型供应商配置 ─────────────────────────────────────
+PROVIDERS = {
+    "智谱 GLM": {
+        "base_url": "https://open.bigmodel.cn/api/paas/v4/",
+        "env_key": "ZHIPU_API_KEY",
+        "models": {
+            "GLM-4V-Flash": "免费视觉理解",
+            "GLM-4-Flash-250414": "免费纯文本",
+        },
+        "default": "GLM-4V-Flash",
+    },
+    "DeepSeek": {
+        "base_url": "https://api.deepseek.com",
+        "env_key": "DEEPSEEK_API_KEY",
+        "models": {
+            "deepseek-chat": "通用对话",
+            "deepseek-reasoner": "深度推理",
+        },
+        "default": "deepseek-chat",
+    },
+    "通义千问": {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "env_key": "DASHSCOPE_API_KEY",
+        "models": {
+            "qwen-plus": "高性价比",
+            "qwen-max": "最强能力",
+            "qwen-vl-plus": "视觉理解",
+        },
+        "default": "qwen-plus",
+    },
+}
+
+if "provider" not in st.session_state:
+    st.session_state.provider = "智谱 GLM"
+if "model_name" not in st.session_state:
+    st.session_state.model_name = PROVIDERS[st.session_state.provider]["default"]
+
+def get_api_key() -> str:
+    """根据当前供应商读取对应的 API Key"""
+    key_name = PROVIDERS[st.session_state.provider]["env_key"]
+    return os.getenv(key_name, "")
+
+def get_base_url() -> str:
+    return PROVIDERS[st.session_state.provider]["base_url"]
+
+ZHIPU_BASE_URL = PROVIDERS["智谱 GLM"]["base_url"]  # RAG/嵌入仍用智谱
 HISTORY_FILE = Path(__file__).parent / ".chat_history.json"
 
 # ── RAG 文档存储 ───────────────────────────────────────────
@@ -326,24 +368,45 @@ with st.sidebar:
 
     # ── 连接 ──
     st.markdown('<p class="sidebar-section">🔌 连接</p>', unsafe_allow_html=True)
-    if API_KEY:
-        masked = API_KEY[:8] + "…" + API_KEY[-4:]
-        st.success(f"API Key: {masked}")
+
+    # 供应商切换
+    prev_provider = st.session_state.provider
+    provider = st.selectbox(
+        "供应商",
+        options=list(PROVIDERS.keys()),
+        index=list(PROVIDERS.keys()).index(st.session_state.provider),
+    )
+    if provider != prev_provider:
+        st.session_state.provider = provider
+        st.session_state.model_name = PROVIDERS[provider]["default"]
+        st.rerun()
+
+    api_key = get_api_key()
+    if api_key:
+        masked = api_key[:8] + "…" + api_key[-4:]
+        st.success(f"Key: {masked}")
     else:
-        st.error("❌ 未找到 ZHIPU_API_KEY")
-        st.caption("在 `.env` 文件中设置：")
-        st.code("ZHIPU_API_KEY=你的key", language="bash")
+        key_env = PROVIDERS[provider]["env_key"]
+        st.error(f"❌ 未找到 {key_env}")
+        st.caption(f"在 `.env` 中设置 `{key_env}=你的key`")
 
     st.divider()
 
     # ── 模型参数 ──
     st.markdown('<p class="sidebar-section">🧠 模型参数</p>', unsafe_allow_html=True)
+
+    models = PROVIDERS[st.session_state.provider]["models"]
     model = st.selectbox(
         "模型",
-        options=[VISION_MODEL, TEXT_MODEL],
-        index=0,
-        help=f"{VISION_MODEL}: 支持图片理解 | {TEXT_MODEL}: 纯文本",
+        options=list(models.keys()),
+        index=list(models.keys()).index(
+            st.session_state.model_name
+            if st.session_state.model_name in models
+            else PROVIDERS[st.session_state.provider]["default"]
+        ),
+        format_func=lambda m: f"{m} ({models[m]})",
     )
+    st.session_state.model_name = model
     temperature = st.slider("温度", 0.0, 2.0, 0.7, 0.1)
     max_tokens = st.slider("最大输出", 64, 1024, 512, 64)
 
@@ -526,7 +589,7 @@ def build_messages(model_name: str, user_text: str, images: list[Image.Image]) -
         if isinstance(m["content"], str):
             history.append({"role": m["role"], "content": m["content"]})
 
-    if images and VISION_MODEL in model_name:
+    if images and "vl" in st.session_state.model_name.lower():
         content = [{"type": "text", "text": user_text}]
         for img in images:
             content.append({
@@ -600,8 +663,8 @@ if browse_url and not prompt:
     prompt = f"请分析这个网页的内容：{browse_url}"
 
 if prompt:
-    if not API_KEY:
-        st.error("❌ 未检测到 API Key！请在项目 `.env` 文件中设置 `ZHIPU_API_KEY=你的key`")
+    if not get_api_key():
+        st.error(f"❌ 未检测到 API Key！请在 `.env` 中设置 `{PROVIDERS[st.session_state.provider]['env_key']}`")
         st.stop()
 
     st.session_state.uploaded_images = current_images
@@ -633,12 +696,12 @@ if prompt:
 
         try:
             client = openai.OpenAI(
-                api_key=API_KEY,
-                base_url=ZHIPU_BASE_URL,
+                api_key=get_api_key(),
+                base_url=get_base_url(),
                 timeout=30.0,
             )
 
-            actual_model = VISION_MODEL if current_images else model
+            actual_model = st.session_state.model_name
 
             if st.session_state.agent_enabled:
                 # ── Agent 模式：LangChain 工具调用 ──
@@ -654,8 +717,8 @@ if prompt:
 
                 llm = ChatOpenAI(
                     model=actual_model,
-                    api_key=API_KEY,
-                    base_url=ZHIPU_BASE_URL,
+                    api_key=get_api_key(),
+                    base_url=get_base_url(),
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
