@@ -63,19 +63,62 @@ if LOGIN_ENABLED:
     if "show_register" not in st.session_state:
         st.session_state.show_register = False
 
-    # 注册用户存储
-    REGISTERED_FILE = Path(__file__).parent / ".registered_users.json"
+    # 注册用户存储（GitHub Gist 持久化，不丢数据）
+    GIST_ID = os.getenv("USER_GIST_ID", "")  # 首次运行后自动创建
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+    def _gist_api(method: str, path: str = "", data: dict = None) -> dict:
+        """调用 GitHub Gist API"""
+        import urllib.request, urllib.error
+        url = f"https://api.github.com/gists{GIST_ID and '/' + GIST_ID}{path}"
+        body = json.dumps(data).encode() if data else None
+        req = urllib.request.Request(
+            url, data=body, method=method,
+            headers={
+                "Authorization": "Bearer " + GITHUB_TOKEN,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+            } if body else {
+                "Authorization": "Bearer " + GITHUB_TOKEN,
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        try:
+            r = urllib.request.urlopen(req)
+            return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return {}
 
     def _load_registered() -> dict:
+        if not GIST_ID:
+            return {}
         try:
-            if REGISTERED_FILE.exists():
-                return json.loads(REGISTERED_FILE.read_text())
+            gist = _gist_api("GET")
+            files = gist.get("files", {})
+            for fname, fdata in files.items():
+                if fname == "users.json":
+                    return json.loads(fdata.get("content", "{}"))
         except Exception:
             pass
         return {}
 
     def _save_registered(users: dict):
-        REGISTERED_FILE.write_text(json.dumps(users))
+        global GIST_ID
+        if not GIST_ID:
+            # 首次：创建 Gist
+            gist = _gist_api("POST", data={
+                "description": "GLM Chat user registry",
+                "public": False,
+                "files": {"users.json": {"content": json.dumps(users)}}
+            })
+            gid = gist.get("id", "")
+            if gid:
+                GIST_ID = gid
+                st.session_state._new_gist_id = gid  # 提示用户保存
+        else:
+            _gist_api("PATCH", data={
+                "files": {"users.json": {"content": json.dumps(users)}}
+            })
 
     def _check_password(user: str, pwd: str) -> bool:
         """检查密码：先查 Secrets，再查注册用户（都是 SHA256 存储）"""
@@ -517,6 +560,15 @@ with st.sidebar:
             st.session_state.authenticated = False
             st.session_state.login_user = ""
             st.session_state.messages = []
+            st.rerun()
+
+    # 首次注册后提示保存 Gist ID
+    new_gid = st.session_state.get("_new_gist_id", "")
+    if new_gid:
+        st.warning("⚠️ 请将以下 Gist ID 保存到 Secrets：")
+        st.code(f"USER_GIST_ID = \"{new_gid}\"")
+        if st.button("已保存，关闭提示"):
+            st.session_state._new_gist_id = ""
             st.rerun()
 
     # 供应商切换
