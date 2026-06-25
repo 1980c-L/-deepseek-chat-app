@@ -447,21 +447,47 @@ with st.sidebar:
             else:
                 st.info("没有历史记录")
 
-    with st.expander("ℹ️ 关于"):
+    with st.expander("📖 使用指南"):
         st.markdown(
             """
-        **GLM Chat**
-        基于 Streamlit + 智谱 GLM API
-        支持图片理解 · 流式输出 · 对话持久化
+### 🚀 快速上手
 
-        [智谱开放平台](https://open.bigmodel.cn)
-        [API 文档](https://docs.bigmodel.cn)
+| 模式 | 怎么用 | 能干嘛 |
+|------|--------|--------|
+| **默认聊天** | 直接打字发消息 | 日常对话、写代码、翻译 |
+| **📎 传图片** | 点 📎 选图，打字提问 | 识别图中内容、OCR |
+| **🌐 读网页** | 贴 URL 到输入框 | 抓取网页 + AI 摘要 |
+| **🔍 文档问答** | 开 RAG 开关 → 上传 PDF | 基于文档精准回答 |
+| **🤖 Agent** | 开 Agent 开关 → 打字 | AI 自动搜索、计算、读写文件 |
+
+### 💡 试试这些
+
+- `帮我算 (123+456)*789 等于多少`
+- `搜索一下 DeepSeek 最新消息`
+- `写一首关于编程的诗，保存到 code-poem.txt`
+- 贴一个新闻链接，问 "这篇文章讲了什么"
+- 传一张截图，问 "帮我提取上面的文字"
+
+### ⚙️ 配置提示
+
+- API Key 在 `.env` 文件配置，不需要每次填
+- 切换模型在侧边栏 **🧠 模型参数**
+- 对话自动保存，刷新不丢失
+- 清空前会二次确认，不怕误删
         """
         )
 
 # ── 标题 ───────────────────────────────────────────────────
 st.markdown('<p class="app-title">🤖 GLM Chat</p>', unsafe_allow_html=True)
 st.markdown('<p class="app-subtitle">由智谱 GLM 驱动的多模态对话助手</p>', unsafe_allow_html=True)
+
+# ── 新手欢迎 ───────────────────────────────────────────────
+if not st.session_state.messages:
+    st.info(
+        "👋 **欢迎！** 我是基于智谱 GLM 的 AI 助手。\n\n"
+        "💬 直接聊天 · 📎 上传图片识别 · 🌐 贴链接分析网页 · 🔍 文档问答 · 🤖 Agent 自动执行\n\n"
+        "左下角 **📖 使用指南** 有更多示例，试试看吧！",
+    )
 
 # ── 初始化 + 加载历史 ──────────────────────────────────────
 if "messages" not in st.session_state:
