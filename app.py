@@ -43,18 +43,20 @@ st.markdown(
 
     [data-testid="stChatInput"] textarea {
         border-radius: 10px !important;
-        border: 1px solid #e0e0e0 !important;
+        border: 1px solid #3a3a4a !important;
         padding: 12px 16px !important;
+        background: #1a1a2e !important;
+        color: #e4e4e7 !important;
     }
     [data-testid="stChatInput"] textarea:focus {
-        border-color: #4F46E5 !important;
-        box-shadow: 0 0 0 2px rgba(79,70,229,0.1) !important;
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 2px rgba(99,102,241,0.2) !important;
     }
 
     .app-title {
         font-size: 1.4rem;
         font-weight: 600;
-        color: #1e1e1e;
+        color: #e4e4e7;
         margin-bottom: -0.5rem;
     }
     .app-subtitle {
