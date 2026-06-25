@@ -32,121 +32,210 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    footer {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
+    /* ═══════════════════════════════════════════════════ */
+    /*  全局基础                                        */
+    /* ═══════════════════════════════════════════════════ */
+    footer, #MainMenu { visibility: hidden; }
 
-    /* ── 全局限宽居中 ── */
+    /* 页面背景渐变 */
+    .stApp {
+        background: linear-gradient(160deg, #080810 0%, #0d0d20 40%, #101028 100%) !important;
+    }
+
+    /* 内容区限宽居中 */
     .main .block-container {
         max-width: 900px !important;
-        padding-left: 24px;
-        padding-right: 24px;
+        padding: 1.5rem 24px 0 24px !important;
     }
 
-    /* ── 对话卡片 ── */
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a45; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3d3d60; }
+
+    /* ═══════════════════════════════════════════════════ */
+    /*  标题                                            */
+    /* ═══════════════════════════════════════════════════ */
+    .app-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #a78bfa 0%, #6366f1 50%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: -0.3rem;
+    }
+    .app-subtitle {
+        font-size: 0.85rem;
+        color: #6b6b80;
+        margin-bottom: 0.5rem;
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /*  侧边栏                                          */
+    /* ═══════════════════════════════════════════════════ */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(175deg, #0a0a18, #0f0f24) !important;
+        border-right: 1px solid #1c1c35 !important;
+    }
+    .sidebar-section {
+        color: #a78bfa !important;
+        font-size: 0.7rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        margin-top: 18px;
+        margin-bottom: 6px;
+        opacity: 0.85;
+    }
+    /* 侧边栏按钮 */
+    [data-testid="stSidebar"] .stButton button {
+        border-radius: 8px !important;
+        font-size: 0.82rem !important;
+        transition: all 0.2s ease;
+    }
+    [data-testid="stSidebar"] .stButton button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+    }
+    /* 侧边栏分割线 */
+    [data-testid="stSidebar"] hr {
+        border-color: #1c1c35 !important;
+        margin: 14px 0 !important;
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /*  聊天气泡                                        */
+    /* ═══════════════════════════════════════════════════ */
     [data-testid="stChatMessage"] {
-        border-radius: 14px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 12px !important;
-        background: #1a1a2e !important;
-        border: 1px solid #2a2a3e !important;
+        border-radius: 16px !important;
+        padding: 14px 18px !important;
+        margin-bottom: 14px !important;
+        background: #14142b !important;
+        border: 1px solid #1e1e3a !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        animation: msgFadeIn 0.4s ease-out;
     }
-
-    /* ── 行间距 ── */
+    @keyframes msgFadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
     [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
         line-height: 1.8;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
+    }
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p code {
+        background: #1e1e3a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #a78bfa;
+        font-size: 0.87em;
     }
 
-    /* ── 输入框 ── */
+    /* ═══════════════════════════════════════════════════ */
+    /*  输入区 + 发送按钮                                */
+    /* ═══════════════════════════════════════════════════ */
     [data-testid="stChatInput"] {
         position: sticky !important;
         bottom: 0 !important;
         z-index: 50 !important;
-        background: #0f0f1a !important;
-        padding-top: 8px !important;
-        padding-bottom: 12px !important;
+        background: linear-gradient(0deg, #080810 70%, transparent 100%) !important;
+        padding: 12px 0 16px 0 !important;
     }
     [data-testid="stChatInput"] textarea {
-        border-radius: 10px !important;
-        border: 1px solid #3a3a4a !important;
-        padding: 12px 16px !important;
-        background: #1a1a2e !important;
-        color: #e4e4e7 !important;
+        border-radius: 14px !important;
+        border: 1.5px solid #252545 !important;
+        padding: 14px 18px !important;
+        background: #12122b !important;
+        color: #e8e8f0 !important;
+        font-size: 0.94rem !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+        transition: all 0.25s ease;
     }
     [data-testid="stChatInput"] textarea:focus {
-        border-color: #6366f1 !important;
-        box-shadow: 0 0 0 2px rgba(99,102,241,0.2) !important;
+        border-color: #818cf8 !important;
+        box-shadow: 0 0 0 3px rgba(129,140,248,0.12), 0 4px 20px rgba(99,102,241,0.15) !important;
+    }
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: #505070 !important;
     }
 
-    /* ── 标题 ── */
-    .app-title {
-        font-size: 1.4rem;
-        font-weight: 600;
-        color: #e4e4e7;
-        margin-bottom: -0.5rem;
+    /* ═══════════════════════════════════════════════════ */
+    /*  按钮（全局）                                     */
+    /* ═══════════════════════════════════════════════════ */
+    .stButton > button {
+        border-radius: 10px !important;
+        transition: all 0.2s ease;
     }
-    .app-subtitle {
-        font-size: 0.85rem;
-        color: #888;
-        margin-bottom: 0.5rem;
-    }
-
-    /* ── 侧边栏分组标题 ── */
-    .sidebar-section {
-        color: #6366f1 !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 16px;
-        margin-bottom: 8px;
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
-    /* ── Typing 动画 ── */
+    /* ═══════════════════════════════════════════════════ */
+    /*  Toggle 开关                                      */
+    /* ═══════════════════════════════════════════════════ */
+    [data-testid="stToggle"] label {
+        color: #c0c0d0 !important;
+    }
+
+    /* ═══════════════════════════════════════════════════ */
+    /*  Typing 动画                                      */
+    /* ═══════════════════════════════════════════════════ */
     .typing-dots {
-        display: inline-flex;
-        gap: 4px;
-        align-items: center;
-        padding: 8px 0;
+        display: inline-flex; gap: 5px; align-items: center; padding: 10px 0;
     }
     .typing-dots span {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #6366f1;
-        animation: bounce 1.2s infinite ease-in-out;
+        width: 7px; height: 7px; border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #a78bfa);
+        box-shadow: 0 0 8px rgba(99,102,241,0.4);
+        animation: bounceDots 1.4s infinite ease-in-out;
     }
     .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
     .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes bounce {
-        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-        30% { transform: translateY(-8px); opacity: 1; }
+    @keyframes bounceDots {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+        30% { transform: translateY(-10px); opacity: 1; }
     }
 
-    /* ── 代码块高亮 ── */
+    /* ═══════════════════════════════════════════════════ */
+    /*  代码块                                          */
+    /* ═══════════════════════════════════════════════════ */
     [data-testid="stMarkdownContainer"] pre {
-        background: #0f0f1a !important;
-        border: 1px solid #2a2a3e !important;
-        border-radius: 10px !important;
-        padding: 16px !important;
+        background: #0a0a18 !important;
+        border: 1px solid #202045 !important;
+        border-radius: 12px !important;
+        padding: 18px !important;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
     }
     [data-testid="stMarkdownContainer"] code {
-        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace !important;
-        font-size: 0.88rem !important;
+        font-family: 'JetBrains Mono','Fira Code','Cascadia Code',monospace !important;
+        font-size: 0.85rem !important;
     }
     [data-testid="stMarkdownContainer"] pre code {
-        color: #e4e4e7 !important;
+        color: #c8c8dc !important;
     }
 
-    /* ── 拖拽上传区 ── */
+    /* ═══════════════════════════════════════════════════ */
+    /*  上传区 + 提示框                                  */
+    /* ═══════════════════════════════════════════════════ */
     [data-testid="stFileUploadDropzone"] {
-        border: 2px dashed #3a3a4a !important;
-        border-radius: 10px !important;
-        padding: 6px 12px !important;
-        transition: border-color 0.2s;
+        border: 2px dashed #252545 !important;
+        border-radius: 12px !important;
+        padding: 8px 14px !important;
+        background: rgba(99,102,241,0.03) !important;
+        transition: all 0.2s ease;
     }
     [data-testid="stFileUploadDropzone"]:hover {
-        border-color: #6366f1 !important;
+        border-color: #818cf8 !important;
+        background: rgba(99,102,241,0.06) !important;
+    }
+    .stAlert {
+        border-radius: 12px !important;
+        border: 1px solid #252545 !important;
+        background: #13132e !important;
     }
 </style>
 """,
