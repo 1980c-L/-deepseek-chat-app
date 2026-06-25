@@ -219,7 +219,12 @@ st.markdown(
     }
 
     /* ═══════════════════════════════════════════════════ */
-    /*  上传区 + 提示框                                  */
+    /* 头像图片 */
+    .avatar-img {
+        border-radius: 50% !important;
+        object-fit: cover;
+    }
+    /* 上传区 + 提示框 */
     /* ═══════════════════════════════════════════════════ */
     [data-testid="stFileUploadDropzone"] {
         border: 2px dashed #252545 !important;
@@ -259,6 +264,10 @@ if "user_avatar" not in st.session_state:
     st.session_state.user_avatar = "👤"
 if "ai_avatar" not in st.session_state:
     st.session_state.ai_avatar = "🤖"
+if "user_avatar_img" not in st.session_state:
+    st.session_state.user_avatar_img = None
+if "ai_avatar_img" not in st.session_state:
+    st.session_state.ai_avatar_img = None
 
 
 # ── 对话持久化 ────────────────────────────────────────────
@@ -465,6 +474,11 @@ with st.sidebar:
                                 placeholder="👤")
         if user_av.strip():
             st.session_state.user_avatar = user_av.strip()
+            st.session_state.user_avatar_img = None
+        user_img_file = st.file_uploader("上传", type=["png","jpg","jpeg","webp"],
+                                         key="uimg", label_visibility="collapsed")
+        if user_img_file:
+            st.session_state.user_avatar_img = Image.open(user_img_file).convert("RGBA")
 
     with col_aa:
         st.caption("AI 头像")
@@ -474,6 +488,11 @@ with st.sidebar:
                               placeholder="🤖")
         if ai_av.strip():
             st.session_state.ai_avatar = ai_av.strip()
+            st.session_state.ai_avatar_img = None
+        ai_img_file = st.file_uploader("上传", type=["png","jpg","jpeg","webp"],
+                                       key="aimg", label_visibility="collapsed")
+        if ai_img_file:
+            st.session_state.ai_avatar_img = Image.open(ai_img_file).convert("RGBA")
 
     # 快速预设
     presets = st.radio(
@@ -492,6 +511,8 @@ with st.sidebar:
             "🐼/🦊 萌系": ("🐼", "🦊"),
         }
         st.session_state.user_avatar, st.session_state.ai_avatar = mapping[presets]
+        st.session_state.user_avatar_img = None
+        st.session_state.ai_avatar_img = None
         st.rerun()
 
     st.divider()
@@ -589,9 +610,20 @@ def build_messages(model_name: str, user_text: str, images: list[Image.Image]) -
     return [system_msg] + history + [current]
 
 
+def render_avatar(which: str, size: int = 32):
+    """渲染头像：优先图片，fallback emoji"""
+    img = st.session_state.user_avatar_img if which == "user" else st.session_state.ai_avatar_img
+    if img is not None:
+        st.image(img, width=size)
+    else:
+        emoji = st.session_state.user_avatar if which == "user" else st.session_state.ai_avatar
+        st.markdown(f'<span style="font-size:{size-4}px;line-height:1">{emoji}</span>',
+                    unsafe_allow_html=True)
+
 # ── 渲染历史消息 ───────────────────────────────────────────
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"], avatar=msg.get("avatar")):
+    role = msg["role"]
+    with st.chat_message(role):
         content = msg["content"]
         if isinstance(content, str):
             st.markdown(content)
