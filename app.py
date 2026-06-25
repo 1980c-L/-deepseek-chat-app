@@ -186,14 +186,17 @@ for msg in st.session_state.messages:
             for img in msg["images"]:
                 st.image(img, width=200)
 
-# ── 图片上传区 ─────────────────────────────────────────────
-uploaded_files = st.file_uploader(
-    "📷 上传图片（可选）",
-    type=["png", "jpg", "jpeg", "webp", "gif"],
-    accept_multiple_files=True,
-    key="image_uploader",
-    label_visibility="collapsed",
-)
+# ── 输入栏：图片上传 + 消息输入 ──────────────────────────
+col_img, col_input = st.columns([0.08, 0.92], gap="small")
+
+with col_img:
+    uploaded_files = st.file_uploader(
+        "📷",
+        type=["png", "jpg", "jpeg", "webp", "gif"],
+        accept_multiple_files=True,
+        key="image_uploader",
+        label_visibility="collapsed",
+    )
 
 current_images = []
 if uploaded_files:
@@ -201,8 +204,8 @@ if uploaded_files:
         img = Image.open(f).convert("RGB")
         current_images.append(img)
 
-# ── 用户输入 ───────────────────────────────────────────────
-if prompt := st.chat_input("输入你的问题，按 Enter 发送…"):
+with col_input:
+    prompt = st.chat_input("输入你的问题，按 Enter 发送…")
     if not api_key:
         st.error("❌ 请在侧边栏填写智谱 API Key")
         st.stop()
