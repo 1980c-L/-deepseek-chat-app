@@ -13,6 +13,7 @@ from io import BytesIO
 from PIL import Image
 from pathlib import Path
 from dotenv import load_dotenv
+from rag import DocumentStore
 
 # ── 加载环境变量 ───────────────────────────────────────────
 load_dotenv()
@@ -157,6 +158,12 @@ VISION_MODEL = "GLM-4V-Flash"       # 免费视觉理解
 TEXT_MODEL = "GLM-4-Flash-250414"   # 免费纯文本（备选）
 HISTORY_FILE = Path(__file__).parent / ".chat_history.json"
 
+# ── RAG 文档存储 ───────────────────────────────────────────
+if "doc_store" not in st.session_state:
+    st.session_state.doc_store = DocumentStore(Path(__file__).parent / ".rag_cache")
+if "rag_enabled" not in st.session_state:
+    st.session_state.rag_enabled = False
+
 
 # ── 对话持久化 ────────────────────────────────────────────
 def save_history(messages: list):
@@ -250,6 +257,52 @@ with st.sidebar:
 
     st.divider()
 
+    # ── 文档 RAG ──
+    st.markdown('<p class="sidebar-section">📚 文档问答</p>', unsafe_allow_html=True)
+
+    # RAG 开关
+    rag_enabled = st.toggle("🔍 基于文档回答", value=st.session_state.rag_enabled,
+                            help="开启后 AI 将基于上传的文档内容回答")
+    if rag_enabled != st.session_state.rag_enabled:
+        st.session_state.rag_enabled = rag_enabled
+
+    # 文档上传
+    if rag_enabled:
+        doc_files = st.file_uploader(
+            "上传文档",
+            type=["pdf", "docx", "txt", "md"],
+            accept_multiple_files=True,
+            key="doc_uploader",
+            label_visibility="collapsed",
+        )
+        if doc_files:
+            ds = st.session_state.doc_store
+            new_docs = [f for f in doc_files if f.name not in ds.doc_names]
+            if new_docs:
+                with st.spinner("解析文档…"):
+                    total = 0
+                    bar = st.progress(0)
+                    for i, f in enumerate(new_docs):
+                        n = ds.add_document(f.name, f.read(), API_KEY, ZHIPU_BASE_URL)
+                        total += n
+                        bar.progress((i + 1) / len(new_docs))
+                    bar.empty()
+                st.success(f"已索引 {len(new_docs)} 个文档，{total} 个片段")
+                st.rerun()
+
+        # 已加载文档列表
+        ds = st.session_state.doc_store
+        if ds.doc_names:
+            st.caption(f"📄 {len(ds.doc_names)} 个文档已加载")
+            for name in ds.doc_names:
+                st.caption(f"  • {name}")
+            if st.button("清除文档", use_container_width=True):
+                ds.clear()
+                st.session_state.rag_enabled = False
+                st.rerun()
+
+    st.divider()
+
     # ── 对话操作 ──
     st.markdown('<p class="sidebar-section">💬 对话</p>', unsafe_allow_html=True)
 
@@ -324,7 +377,23 @@ def encode_image(image: Image.Image) -> str:
 
 
 def build_messages(model_name: str, user_text: str, images: list[Image.Image]) -> list[dict]:
-    system_msg = {"role": "system", "content": "你是一个专业、友好的 AI 助手，支持理解用户上传的图片。"}
+    # RAG 上下文注入
+    rag_context = ""
+    if st.session_state.rag_enabled:
+        ds = st.session_state.doc_store
+        if ds.is_ready and API_KEY:
+            rag_context = ds.query(user_text, API_KEY, ZHIPU_BASE_URL)
+
+    if rag_context:
+        system_prompt = (
+            "你是一个专业的文档问答助手。请严格基于以下文档片段回答用户问题。"
+            "如果文档中没有相关信息，请明确说'文档中未提及'，不要编造。\n\n"
+            f"## 参考文档\n{rag_context}"
+        )
+    else:
+        system_prompt = "你是一个专业、友好的 AI 助手，支持理解用户上传的图片。"
+
+    system_msg = {"role": "system", "content": system_prompt}
     history = []
     for m in st.session_state.messages:
         # 跳过历史图片占位符
