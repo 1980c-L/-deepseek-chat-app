@@ -44,7 +44,7 @@ def _load_users() -> dict:
 
 LOGIN_USERS = _load_users()
 LOGIN_ENABLED = bool(LOGIN_USERS)
-API_KEY=os.get...Y", "")
+API_KEY = os.getenv("ZHIPU_API_KEY", "")
 
 # ── 页面配置 ───────────────────────────────────────────────
 st.set_page_config(
