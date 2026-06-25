@@ -33,14 +33,37 @@ st.markdown(
     footer {visibility: hidden;}
     #MainMenu {visibility: hidden;}
 
-    .stChatMessage {
-        border-radius: 12px;
-        padding: 8px 4px;
-    }
-    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
-        line-height: 1.7;
+    /* ── 全局限宽居中 ── */
+    .main .block-container {
+        max-width: 900px !important;
+        padding-left: 24px;
+        padding-right: 24px;
     }
 
+    /* ── 对话卡片 ── */
+    [data-testid="stChatMessage"] {
+        border-radius: 14px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 12px !important;
+        background: #1a1a2e !important;
+        border: 1px solid #2a2a3e !important;
+    }
+
+    /* ── 行间距 ── */
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+        line-height: 1.8;
+        margin-bottom: 6px;
+    }
+
+    /* ── 输入框 ── */
+    [data-testid="stChatInput"] {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 50 !important;
+        background: #0f0f1a !important;
+        padding-top: 8px !important;
+        padding-bottom: 12px !important;
+    }
     [data-testid="stChatInput"] textarea {
         border-radius: 10px !important;
         border: 1px solid #3a3a4a !important;
@@ -53,6 +76,7 @@ st.markdown(
         box-shadow: 0 0 0 2px rgba(99,102,241,0.2) !important;
     }
 
+    /* ── 标题 ── */
     .app-title {
         font-size: 1.4rem;
         font-weight: 600;
@@ -63,6 +87,17 @@ st.markdown(
         font-size: 0.85rem;
         color: #888;
         margin-bottom: 0.5rem;
+    }
+
+    /* ── 侧边栏分组标题 ── */
+    .sidebar-section {
+        color: #6366f1 !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 16px;
+        margin-bottom: 8px;
     }
 </style>
 """,
@@ -143,43 +178,45 @@ def friendly_error(error: Exception) -> str:
 with st.sidebar:
     st.markdown("## ⚙️ 设置")
 
-    # API Key 状态（只读，从环境变量读取）
+    # ── 连接 ──
+    st.markdown('<p class="sidebar-section">🔌 连接</p>', unsafe_allow_html=True)
     if API_KEY:
         masked = API_KEY[:8] + "…" + API_KEY[-4:]
-        st.success(f"🔑 API Key: {masked}")
+        st.success(f"API Key: {masked}")
     else:
         st.error("❌ 未找到 ZHIPU_API_KEY")
-        st.caption("请在项目目录的 `.env` 文件中设置：")
+        st.caption("在 `.env` 文件中设置：")
         st.code("ZHIPU_API_KEY=你的key", language="bash")
 
     st.divider()
 
-    # 模型选择
+    # ── 模型参数 ──
+    st.markdown('<p class="sidebar-section">🧠 模型参数</p>', unsafe_allow_html=True)
     model = st.selectbox(
-        "🧠 模型",
+        "模型",
         options=[VISION_MODEL, TEXT_MODEL],
         index=0,
         help=f"{VISION_MODEL}: 支持图片理解 | {TEXT_MODEL}: 纯文本",
     )
-
-    temperature = st.slider("🌡️ 温度", 0.0, 2.0, 0.7, 0.1)
-    max_tokens = st.slider("📏 最大输出", 64, 1024, 512, 64)
+    temperature = st.slider("温度", 0.0, 2.0, 0.7, 0.1)
+    max_tokens = st.slider("最大输出", 64, 1024, 512, 64)
 
     st.divider()
 
+    # ── 对话操作 ──
+    st.markdown('<p class="sidebar-section">💬 对话</p>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🗑️ 清空对话", use_container_width=True):
+        if st.button("🗑️ 清空", use_container_width=True):
             st.session_state.messages = []
             st.session_state.uploaded_images = []
-            # 也清空磁盘上的历史
             try:
                 HISTORY_FILE.unlink(missing_ok=True)
             except Exception:
                 pass
             st.rerun()
     with col2:
-        if st.button("📂 加载记录", use_container_width=True):
+        if st.button("📂 加载", use_container_width=True):
             loaded = load_history()
             if loaded:
                 st.session_state.messages = loaded
