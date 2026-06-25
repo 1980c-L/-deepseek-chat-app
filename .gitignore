@@ -1,3 +1,4 @@
 .env
 .chat_history.json
 .rag_cache/
+__pycache__/
