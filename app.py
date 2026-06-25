@@ -353,7 +353,7 @@ with st.sidebar:
     if agent_enabled != st.session_state.agent_enabled:
         st.session_state.agent_enabled = agent_enabled
     if agent_enabled:
-        st.caption("可用工具：🔢计算器 🔍搜索 📂文件读写")
+        st.caption("可用工具：🔢计算器 🔍搜索 🌐抓网页 📂文件读写")
 
     st.divider()
 
@@ -542,13 +542,24 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-uploaded_files = st.file_uploader(
-    "📎 选择图片",
-    type=["png", "jpg", "jpeg", "webp", "gif"],
-    accept_multiple_files=True,
-    key="image_uploader",
-    label_visibility="collapsed",
-)
+c_url, c_img = st.columns([0.7, 0.3], gap="small")
+
+with c_url:
+    browse_url = st.text_input(
+        "🌐",
+        placeholder="粘贴 URL 让 AI 分析网页…",
+        key="url_input",
+        label_visibility="collapsed",
+    )
+
+with c_img:
+    uploaded_files = st.file_uploader(
+        "📎 选择图片",
+        type=["png", "jpg", "jpeg", "webp", "gif"],
+        accept_multiple_files=True,
+        key="image_uploader",
+        label_visibility="collapsed",
+    )
 
 current_images = []
 if uploaded_files:
@@ -557,6 +568,10 @@ if uploaded_files:
         current_images.append(img)
 
 prompt = st.chat_input("输入你的问题，按 Enter 发送…")
+
+# 如果有 URL 且没输 prompt，自动生成
+if browse_url and not prompt:
+    prompt = f"请分析这个网页的内容：{browse_url}"
 
 if prompt:
     if not API_KEY:

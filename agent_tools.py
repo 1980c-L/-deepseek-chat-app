@@ -141,4 +141,26 @@ def get_langchain_tools():
             return "格式错误。正确格式：'文件路径|文件内容'"
         return write_agent_file(parts[0].strip(), parts[1].strip())
 
-    return [calculator, search_web, list_files, read_file, write_file]
+    @tool
+    def fetch_webpage(url: str) -> str:
+        """抓取网页内容。输入完整 URL（如 https://example.com），返回页面标题和正文"""
+        from browser import fetch_page_content
+        # 需要 API key 做摘要 — 从环境读取
+        import os
+        from pathlib import Path as _Path
+        from dotenv import load_dotenv as _load
+
+        _load()
+        key = os.getenv("ZHIPU_API_KEY", "")
+        base = "https://open.bigmodel.cn/api/paas/v4/"
+        result = fetch_page_content(url, key, base)
+        if "error" in result:
+            return f"❌ {result['error']}"
+        parts = [f"📄 {result['title']}", f"🔗 {result['url']}", ""]
+        if result.get("summary"):
+            parts.append(f"**AI 摘要：**\n{result['summary']}")
+            parts.append("\n---\n**正文：**")
+        parts.append(result["text"][:3000])
+        return "\n".join(parts)
+
+    return [calculator, search_web, fetch_webpage, list_files, read_file, write_file]
