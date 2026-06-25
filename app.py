@@ -8,6 +8,7 @@ import os
 import json
 import base64
 import time
+import re
 from io import BytesIO
 from PIL import Image
 from pathlib import Path
@@ -69,7 +70,7 @@ st.markdown(
 # ── 智谱 API 配置 ─────────────────────────────────────────
 ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 VISION_MODEL = "GLM-4V-Flash"       # 免费视觉理解
-TEXT_MODEL = "GLM-4.7-Flash"         # 免费纯文本
+TEXT_MODEL = "GLM-4-Flash-250414"   # 免费纯文本（备选）
 HISTORY_FILE = Path(__file__).parent / ".chat_history.json"
 
 
@@ -323,9 +324,27 @@ if prompt:
             )
 
             for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
+                delta = chunk.choices[0].delta
+                # GLM API 可能把内容放在不同字段
+                content = getattr(delta, "content", None) or ""
+                reasoning = getattr(delta, "reasoning_content", None)
+                if content:
+                    full_response += content
                     placeholder.markdown(full_response + "▌")
+                elif reasoning:
+                    full_response += reasoning
+                    placeholder.markdown(full_response + "▌")
+
+            # 兜底：如果流式没拿到内容，尝试非流式结果
+            if not full_response.strip():
+                full_response = chunk.choices[0].message.content if hasattr(chunk.choices[0], "message") else ""
+
+            # 检测异常回复（全是标签没有实际内容）
+            text_only = re.sub(r'<[^>]+>', '', full_response).strip()
+            if full_response.strip() and not text_only:
+                full_response = "⚠️ API 返回了异常响应，请稍后重试或切换模型。"
+            elif not full_response.strip():
+                full_response = "⚠️ 未收到有效回复，请重试。"
 
             placeholder.markdown(full_response)
             save_history(st.session_state.messages + [{
