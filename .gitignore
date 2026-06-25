@@ -2,3 +2,4 @@
 .chat_history.json
 .rag_cache/
 __pycache__/
+.registered_users.json

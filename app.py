@@ -60,13 +60,37 @@ if LOGIN_ENABLED:
         st.session_state.authenticated = False
     if "login_user" not in st.session_state:
         st.session_state.login_user = ""
+    if "show_register" not in st.session_state:
+        st.session_state.show_register = False
+
+    # 注册用户存储
+    REGISTERED_FILE = Path(__file__).parent / ".registered_users.json"
+
+    def _load_registered() -> dict:
+        try:
+            if REGISTERED_FILE.exists():
+                return json.loads(REGISTERED_FILE.read_text())
+        except Exception:
+            pass
+        return {}
+
+    def _save_registered(users: dict):
+        REGISTERED_FILE.write_text(json.dumps(users))
+
+    def _check_password(user: str, pwd: str) -> bool:
+        """检查密码：先查 Secrets，再查注册用户（都是 SHA256 存储）"""
+        stored = LOGIN_USERS.get(user, "")
+        if stored:
+            return pwd == stored or hashlib.sha256(pwd.encode()).hexdigest() == stored
+        registered = _load_registered()
+        stored = registered.get(user, "")
+        return bool(stored) and hashlib.sha256(pwd.encode()).hexdigest() == stored
 
     if not st.session_state.authenticated:
-        # 隐藏侧边栏
         st.markdown("""
         <style>
             [data-testid="stSidebar"] { display: none; }
-            .main .block-container { max-width: 420px !important; padding-top: 12vh !important; }
+            .main .block-container { max-width: 420px !important; padding-top: 8vh !important; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -74,28 +98,74 @@ if LOGIN_ENABLED:
         <div style="text-align:center; margin-bottom:24px;">
             <div style="font-size:3rem;">🤖</div>
             <h2 style="margin:8px 0 0;">GLM Chat</h2>
-            <p style="color:#888;">请登录后使用</p>
+            <p style="color:#888;">登录或注册后使用</p>
         </div>
         """, unsafe_allow_html=True)
 
-        with st.form("login_form"):
-            username = st.text_input("用户名", placeholder="输入用户名")
-            password = st.text_input("密码", type="password", placeholder="输入密码")
-            submitted = st.form_submit_button("登 录", use_container_width=True)
+        if not st.session_state.show_register:
+            # ── 登录表单 ──
+            with st.form("login_form"):
+                username = st.text_input("用户名", placeholder="输入用户名")
+                password = st.text_input("密码", type="password", placeholder="输入密码")
+                col1, col2 = st.columns([1.5, 1])
+                with col1:
+                    submitted = st.form_submit_button("登 录", use_container_width=True)
+                with col2:
+                    to_register = st.form_submit_button("注册新账号", use_container_width=True)
 
-            if submitted:
-                user = username.strip()
-                pwd = password.strip()
-                # SHA256 哈希比对（支持明文或哈希存储）
-                stored = LOGIN_USERS.get(user, "")
-                pwd_ok = (pwd == stored or
-                          hashlib.sha256(pwd.encode()).hexdigest() == stored)
-                if user in LOGIN_USERS and pwd_ok:
-                    st.session_state.authenticated = True
-                    st.session_state.login_user = user
+                if submitted:
+                    user = username.strip()
+                    pwd = password.strip()
+                    if not user or not pwd:
+                        st.error("用户名和密码不能为空")
+                    elif _check_password(user, pwd):
+                        st.session_state.authenticated = True
+                        st.session_state.login_user = user
+                        st.rerun()
+                    else:
+                        st.error("用户名或密码错误")
+
+                if to_register:
+                    st.session_state.show_register = True
                     st.rerun()
-                else:
-                    st.error("用户名或密码错误")
+        else:
+            # ── 注册表单 ──
+            with st.form("register_form"):
+                st.markdown("### ✨ 注册新账号")
+                new_user = st.text_input("设置用户名", placeholder="3-20 个字符")
+                new_pwd = st.text_input("设置密码", type="password", placeholder="至少 4 位")
+                new_pwd2 = st.text_input("确认密码", type="password", placeholder="再输一次")
+                col1, col2 = st.columns([1.5, 1])
+                with col1:
+                    reg_submit = st.form_submit_button("注 册", use_container_width=True)
+                with col2:
+                    back = st.form_submit_button("← 返回登录", use_container_width=True)
+
+                if reg_submit:
+                    u = new_user.strip()
+                    p = new_pwd.strip()
+                    if not u or len(u) < 2:
+                        st.error("用户名至少 2 个字符")
+                    elif u in LOGIN_USERS:
+                        st.error("该用户名已被占用")
+                    elif len(p) < 4:
+                        st.error("密码至少 4 位")
+                    elif p != new_pwd2.strip():
+                        st.error("两次密码不一致")
+                    else:
+                        registered = _load_registered()
+                        if u in registered:
+                            st.error("该用户名已被注册")
+                        else:
+                            registered[u] = hashlib.sha256(p.encode()).hexdigest()
+                            _save_registered(registered)
+                            st.success("注册成功！请登录")
+                            st.session_state.show_register = False
+                            st.rerun()
+
+                if back:
+                    st.session_state.show_register = False
+                    st.rerun()
 
         st.stop()
 
