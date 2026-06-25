@@ -103,10 +103,10 @@ with st.sidebar:
     # 最大 Token
     max_tokens = st.slider(
         "📏 最大输出长度",
-        min_value=256,
-        max_value=8192,
-        value=4096,
-        step=256,
+        min_value=64,
+        max_value=1024,
+        value=512,
+        step=64,
     )
 
     st.divider()
